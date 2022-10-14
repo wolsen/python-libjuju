@@ -623,6 +623,12 @@ class AddApplicationChange(ChangeInfo):
             origin.id_ = id_
             resources = await context.model._add_charmhub_resources(
                 self.application, charm, origin, overrides=self.resources)
+            # If the origin.id_ remains set, then the deployment step will error
+            # out with:
+            # programming error, Deploy, neither CharmOrigin ID nor Hash can
+            # be set before a charm is downloaded. See CharmHubRepository
+            # GetDownloadURL.
+            origin.id_ = None
         else:
             resources = context.bundle.get("applications", {}).get(self.application, {}).get("resources", {})
 
