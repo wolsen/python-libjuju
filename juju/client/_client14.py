@@ -216,6 +216,15 @@ class ApplicationFacade(Type):
                                                         'remote',
                                                         'life'],
                                            'type': 'object'},
+                     'ApplicationSet': {'additionalProperties': False,
+                                        'properties': {'application': {'type': 'string'},
+                                                       'branch': {'type': 'string'},
+                                                       'options': {'patternProperties': {'.*': {'type': 'string'}},
+                                                                   'type': 'object'}},
+                                        'required': ['application',
+                                                     'branch',
+                                                     'options'],
+                                        'type': 'object'},
                      'ApplicationSetCharm': {'additionalProperties': False,
                                              'properties': {'application': {'type': 'string'},
                                                             'channel': {'type': 'string'},
@@ -790,6 +799,12 @@ class ApplicationFacade(Type):
                             'properties': {'Params': {'$ref': '#/definitions/ApplicationGet'},
                                            'Result': {'$ref': '#/definitions/ApplicationGetResults'}},
                             'type': 'object'},
+                    'GetCharmURL': {'description': 'GetCharmURL returns the charm '
+                                                   'URL the given application is\n'
+                                                   'running at present.',
+                                    'properties': {'Params': {'$ref': '#/definitions/ApplicationGet'},
+                                                   'Result': {'$ref': '#/definitions/StringResult'}},
+                                    'type': 'object'},
                     'GetCharmURLOrigin': {'description': 'GetCharmURLOrigin '
                                                          'returns the charm URL '
                                                          'and charm origin the '
@@ -838,13 +853,20 @@ class ApplicationFacade(Type):
                                           'properties': {'Params': {'$ref': '#/definitions/ScaleApplicationsParams'},
                                                          'Result': {'$ref': '#/definitions/ScaleApplicationResults'}},
                                           'type': 'object'},
+                    'Set': {'description': 'Set implements the server side of '
+                                           'Application.Set.\n'
+                                           'It does not unset values that are set '
+                                           'to an empty string.\n'
+                                           'Unset should be used for that.',
+                            'properties': {'Params': {'$ref': '#/definitions/ApplicationSet'}},
+                            'type': 'object'},
                     'SetCharm': {'description': 'SetCharm sets the charm for a '
                                                 'given for the application.',
                                  'properties': {'Params': {'$ref': '#/definitions/ApplicationSetCharm'}},
                                  'type': 'object'},
-                    'SetConfigs': {'description': 'SetConfigs implements the '
-                                                  'server side of '
-                                                  'Application.SetConfig.  Both\n'
+                    'SetConfigs': {'description': 'SetConfig implements the server '
+                                                  'side of Application.SetConfig.  '
+                                                  'Both\n'
                                                   'application and charm config '
                                                   'are set. It does not unset '
                                                   'values in\n'
@@ -886,6 +908,10 @@ class ApplicationFacade(Type):
                                   'properties': {'Params': {'$ref': '#/definitions/Entities'},
                                                  'Result': {'$ref': '#/definitions/UnitInfoResults'}},
                                   'type': 'object'},
+                    'Unset': {'description': 'Unset implements the server side of '
+                                             'Client.Unset.',
+                              'properties': {'Params': {'$ref': '#/definitions/ApplicationUnset'}},
+                              'type': 'object'},
                     'UnsetApplicationsConfig': {'description': 'UnsetApplicationsConfig '
                                                                'implements the '
                                                                'server side of '
@@ -1324,6 +1350,35 @@ class ApplicationFacade(Type):
 
 
 
+    @ReturnMapping(StringResult)
+    async def GetCharmURL(self, application=None, branch=None):
+        '''
+        GetCharmURL returns the charm URL the given application is
+        running at present.
+
+        application : str
+        branch : str
+        Returns -> StringResult
+        '''
+        if application is not None and not isinstance(application, (bytes, str)):
+            raise Exception("Expected application to be a str, received: {}".format(type(application)))
+
+        if branch is not None and not isinstance(branch, (bytes, str)):
+            raise Exception("Expected branch to be a str, received: {}".format(type(branch)))
+
+        # map input types to rpc msg
+        _params = dict()
+        msg = dict(type='Application',
+                   request='GetCharmURL',
+                   version=14,
+                   params=_params)
+        _params['application'] = application
+        _params['branch'] = branch
+        reply = await self.rpc(msg)
+        return reply
+
+
+
     @ReturnMapping(CharmURLOriginResult)
     async def GetCharmURLOrigin(self, application=None, branch=None):
         '''
@@ -1503,6 +1558,41 @@ class ApplicationFacade(Type):
 
 
     @ReturnMapping(None)
+    async def Set(self, application=None, branch=None, options=None):
+        '''
+        Set implements the server side of Application.Set.
+        It does not unset values that are set to an empty string.
+        Unset should be used for that.
+
+        application : str
+        branch : str
+        options : typing.Mapping[str, str]
+        Returns -> None
+        '''
+        if application is not None and not isinstance(application, (bytes, str)):
+            raise Exception("Expected application to be a str, received: {}".format(type(application)))
+
+        if branch is not None and not isinstance(branch, (bytes, str)):
+            raise Exception("Expected branch to be a str, received: {}".format(type(branch)))
+
+        if options is not None and not isinstance(options, dict):
+            raise Exception("Expected options to be a Mapping, received: {}".format(type(options)))
+
+        # map input types to rpc msg
+        _params = dict()
+        msg = dict(type='Application',
+                   request='Set',
+                   version=14,
+                   params=_params)
+        _params['application'] = application
+        _params['branch'] = branch
+        _params['options'] = options
+        reply = await self.rpc(msg)
+        return reply
+
+
+
+    @ReturnMapping(None)
     async def SetCharm(self, application=None, channel=None, charm_origin=None, charm_url=None, config_settings=None, config_settings_yaml=None, endpoint_bindings=None, force=None, force_series=None, force_units=None, generation=None, resource_ids=None, storage_constraints=None):
         '''
         SetCharm sets the charm for a given for the application.
@@ -1588,7 +1678,7 @@ class ApplicationFacade(Type):
     @ReturnMapping(ErrorResults)
     async def SetConfigs(self, args=None):
         '''
-        SetConfigs implements the server side of Application.SetConfig.  Both
+        SetConfig implements the server side of Application.SetConfig.  Both
         application and charm config are set. It does not unset values in
         Config map that are set to an empty string. Unset should be used for that.
 
@@ -1732,6 +1822,39 @@ class ApplicationFacade(Type):
                    version=14,
                    params=_params)
         _params['entities'] = entities
+        reply = await self.rpc(msg)
+        return reply
+
+
+
+    @ReturnMapping(None)
+    async def Unset(self, application=None, branch=None, options=None):
+        '''
+        Unset implements the server side of Client.Unset.
+
+        application : str
+        branch : str
+        options : typing.Sequence[str]
+        Returns -> None
+        '''
+        if application is not None and not isinstance(application, (bytes, str)):
+            raise Exception("Expected application to be a str, received: {}".format(type(application)))
+
+        if branch is not None and not isinstance(branch, (bytes, str)):
+            raise Exception("Expected branch to be a str, received: {}".format(type(branch)))
+
+        if options is not None and not isinstance(options, (bytes, str, list)):
+            raise Exception("Expected options to be a Sequence, received: {}".format(type(options)))
+
+        # map input types to rpc msg
+        _params = dict()
+        msg = dict(type='Application',
+                   request='Unset',
+                   version=14,
+                   params=_params)
+        _params['application'] = application
+        _params['branch'] = branch
+        _params['options'] = options
         reply = await self.rpc(msg)
         return reply
 
