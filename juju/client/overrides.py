@@ -82,9 +82,11 @@ class ResourcesFacade(Type):
         """
         # map input types to rpc msg
         _params = dict()
+        # TODO(wolsen) Not clear that this is still necessary. Fixing the
+        #  version to 3 in order to avoid some api errors
         msg = dict(type='Resources',
                    request='AddPendingResources',
-                   version=2,
+                   version=3,
                    params=_params)
         _params['tag'] = application_tag
         _params['url'] = charm_url

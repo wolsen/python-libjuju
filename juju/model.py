@@ -1739,7 +1739,15 @@ class Model:
             raise JujuError('unknown charm or bundle {}'.format(entity_url))
         identifier = res.identifier
 
-        series = res.origin.series or series
+        # TODO(wolsen) Juju 3 gets rid of the series concept and uses bases
+        #  instead. Here we try to be compatible both ways
+        if hasattr(res.origin, 'series'):
+            series = res.origin.series
+        elif hasattr(res.origin, 'base'):
+            series = res.origin.base
+        else:
+            series = series
+
         if res.is_bundle:
             handler = BundleHandler(self, trusted=trust, forced=force)
             await handler.fetch_plan(url, res.origin, overlays=overlays)
